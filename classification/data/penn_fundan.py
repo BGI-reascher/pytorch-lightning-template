@@ -72,6 +72,13 @@ def get_transform(train):
 
 
 def collate_fn(batch):
+    """
+    Pair img and label
+    Args:
+        batch:[[imgs], [labels]]
+    Returns:
+        ([img1, label1], [img2, label2])
+    """
     return tuple(zip(*batch))
 
 
@@ -91,4 +98,4 @@ if __name__ == '__main__':
     )
     # For Training
     images, targets = next(iter(data_loader))
-    print(images.shape)
+    print(images[0].shape)
