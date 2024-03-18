@@ -120,7 +120,7 @@ class MNIST(VisionDataset):
 
         img = Image.fromarray(img.numpy(), mode="L")
 
-        if self.train is not None:
+        if self.transform is not None:
             img = self.transform(img)
 
         if self.target_transform is not None:
@@ -162,8 +162,26 @@ class MNIST(VisionDataset):
 
 
 if __name__ == '__main__':
-    mnist = MNIST(
+    # ref: https://pytorch.org/tutorials/beginner/basics/data_tutorial.html
+    from torch.utils.data import DataLoader
+    from torchvision.transforms import ToTensor
+
+    training_data = MNIST(
         root="./",
-        download=True
+        train=True,
+        download=True,
+        transform=ToTensor()
     )
-    print(mnist)
+    test_data = MNIST(
+        root="./",
+        train=False,
+        download=True,
+        transform=ToTensor()
+    )
+    train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+    test_dataloader = DataLoader(test_data, batch_size=64, shuffle=True)
+
+    # display img and label
+    train_features, train_labels = next(iter(train_dataloader))
+    print(f"Feature batch shape: {train_features.size()}")
+    print(f"Labels batch shape: {train_labels.size()}")
