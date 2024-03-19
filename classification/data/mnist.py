@@ -165,12 +165,16 @@ if __name__ == '__main__':
     # ref: https://pytorch.org/tutorials/beginner/basics/data_tutorial.html
     from torch.utils.data import DataLoader
     from torchvision.transforms import ToTensor
+    from torchvision import transforms
 
     training_data = MNIST(
         root="./",
         train=True,
         download=True,
-        transform=ToTensor()
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
     )
     test_data = MNIST(
         root="./",
@@ -182,6 +186,6 @@ if __name__ == '__main__':
     test_dataloader = DataLoader(test_data, batch_size=64, shuffle=True)
 
     # display img and label
-    train_features, train_labels = next(iter(train_dataloader))
+    train_features, train_labels = next(iter(test_dataloader))
     print(f"Feature batch shape: {train_features.size()}")
     print(f"Labels batch shape: {train_labels.size()}")

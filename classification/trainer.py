@@ -2,9 +2,13 @@ import math
 import sys
 
 import torch
+from torchvision import datasets, transforms
+from torch.nn import functional as F
+
 from utils import utils
 
 from data.penn_fundan import PennFudanDataset, get_transform, collate_fn
+from data.mnist import MNIST
 from model.fast_rcnn import get_model_instance_segmentation
 
 
@@ -75,6 +79,7 @@ def trainer():
     dataset_test = torch.utils.data.Subset(dataset_test, indices[-50:])
 
     # define training and validation data loaders
+    # NOTE: collate_fn
     data_loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=2,
