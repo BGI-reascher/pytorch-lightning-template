@@ -4,7 +4,6 @@ import sys
 import torch
 from utils import utils
 
-
 from data.penn_fundan import PennFudanDataset, get_transform, collate_fn
 from model.fast_rcnn import get_model_instance_segmentation
 
@@ -71,6 +70,7 @@ def trainer():
 
     # split the dataset in train and test set
     indices = torch.randperm(len(dataset)).tolist()
+    # indices = [i for i in range(len(dataset))]
     dataset = torch.utils.data.Subset(dataset, indices[:-50])
     dataset_test = torch.utils.data.Subset(dataset_test, indices[-50:])
 
@@ -101,7 +101,7 @@ def trainer():
     params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.SGD(
         params,
-        lr=0.005,
+        lr=0.0001,
         momentum=0.9,
         weight_decay=0.0005
     )
@@ -114,7 +114,7 @@ def trainer():
     )
 
     # let train it just for 2 epoch
-    num_epoch = 2
+    num_epoch = 5
     for epoch in range(num_epoch):
         # train for one epoch, printing every 10 iterations
         train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq=5)
