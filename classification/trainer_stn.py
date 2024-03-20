@@ -42,9 +42,12 @@ class STNTrainer(Trainer):
         datas, targets = datas.to(self.device), targets.to(self.device)
         self.optimizer.zero_grad()
         output = self.model(datas)
+
+        # loss function
         loss = F.nll_loss(output, targets)
         loss.backward()
         self.optimizer.step()
+
         return {"losses": loss}
 
 

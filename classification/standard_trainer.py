@@ -1,5 +1,6 @@
 import math
 import sys
+from typing import Optional, Dict
 
 import torch
 from torch import Tensor
@@ -11,7 +12,7 @@ from data.penn_fundan import PennFudanDataset, get_transform, collate_fn
 
 
 class TrainerBase:
-    def __init__(self, model: Module, configs: dict = {}, device=None):
+    def __init__(self, model: Module, configs: dict = Optional[Dict], device=None):
         self.device = device or torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.model = model
         self.configs = {
@@ -19,7 +20,7 @@ class TrainerBase:
             "step_size": 3,
             "batch_size": 8
         }
-        self.configs.update(configs)
+        self.configs.update(configs or {})
 
     @property
     def optimizer(self):
@@ -103,7 +104,7 @@ class Trainer(TrainerBase):
 
             metric_logger = utils.MetricLogger(delimiter="  ")
             metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
-            header = f"Epoch: [{epoch}]"
+            header = f"Train: Epoch: [{epoch}]"
 
             lr_scheduler = None
             if epoch == 0:
