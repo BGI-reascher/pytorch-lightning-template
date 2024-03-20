@@ -155,7 +155,7 @@ class Trainer(TrainerBase):
                 val_loss += sum(loss for loss in loss_dict.values())
 
             val_loss /= val_num_batch
-            metric_logger.update(**{"test_loss": val_loss})
+            print("test loss: ", val_loss)
 
         return metric_logger
 
