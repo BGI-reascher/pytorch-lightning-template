@@ -1,4 +1,5 @@
-from torch import Tensor
+import torch
+from torch import Tensor, nn
 from torch.nn import functional as F
 from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
@@ -44,11 +45,21 @@ class STNTrainer(Trainer):
         output = self.model(datas)
 
         # loss function
-        loss = F.nll_loss(output, targets)
+        loss_fn = nn.CrossEntropyLoss()
+        loss = loss_fn(output, targets)
         loss.backward()
         self.optimizer.step()
 
         return {"losses": loss}
+
+    def single_eval_run(self, datas: Tensor, targets: Tensor, lr_scheduler=None, scaler=None) -> dict:
+        datas, targets = datas.to(self.device), targets.to(self.device)
+
+        loss_fn = nn.CrossEntropyLoss()
+        with torch.no_grad():
+            pred = self.model(datas)
+            losses = loss_fn(pred, targets).item()
+        return {"test_losses": losses}
 
 
 if __name__ == '__main__':
