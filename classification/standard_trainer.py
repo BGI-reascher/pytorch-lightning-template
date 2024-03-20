@@ -100,6 +100,7 @@ class Trainer(TrainerBase):
         """start train"""
         for epoch in range(epochs):
             self.model.train()
+
             metric_logger = utils.MetricLogger(delimiter="  ")
             metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
             header = f"Epoch: [{epoch}]"

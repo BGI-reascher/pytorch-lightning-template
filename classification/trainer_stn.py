@@ -1,16 +1,9 @@
-import math
-import sys
-
-import torch
 from torch import Tensor
-from torch.nn import Module
 from torch.nn import functional as F
-from torchvision import datasets, transforms
+from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 
 from data.mnist import MNIST
-from utils import utils
-from data.penn_fundan import PennFudanDataset, get_transform, collate_fn
 from standard_trainer import Trainer
 
 
@@ -59,6 +52,7 @@ if __name__ == '__main__':
     from model.stn import STNet
 
     trainer = STNTrainer(
-        model=STNet()
+        model=STNet(),
+        configs={"lr": 0.01}
     )
-    trainer.train(epoch=10)
+    trainer.train(epochs=10)
