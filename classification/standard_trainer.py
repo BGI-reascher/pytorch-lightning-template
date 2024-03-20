@@ -4,26 +4,29 @@ import sys
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.nn import functional as F
-from torchvision import datasets, transforms
 from torch.utils.data import Dataset, DataLoader
 
-from data.mnist import MNIST
 from utils import utils
 from data.penn_fundan import PennFudanDataset, get_transform, collate_fn
 
 
 class TrainerBase:
-    def __init__(self, model: Module, device=None):
+    def __init__(self, model: Module, configs: dict = {}, device=None):
         self.device = device or torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.model = model
+        self.configs = {
+            "lr": 0.00001,
+            "step_size": 3,
+            "batch_size": 8
+        }
+        self.configs.update(configs)
 
     @property
     def optimizer(self):
         params = [p for p in self.model.parameters() if p.requires_grad]
         optimizer = torch.optim.SGD(
             params,
-            lr=0.001,
+            lr=self.configs["lr"],
             momentum=0.9,
             weight_decay=0.0005
         )
@@ -33,7 +36,7 @@ class TrainerBase:
     def lr_scheduler(self):
         return torch.optim.lr_scheduler.StepLR(
             self.optimizer,
-            step_size=3,
+            step_size=self.configs["step_size"],
             gamma=0.1
         )
 
@@ -50,32 +53,13 @@ class TrainerBase:
 
     @property
     def train_data_loader(self):
-        # dataset = MNIST(
-        #     root="./data",
-        #     train=True,
-        #     download=True,
-        #     transform=transforms.Compose([
-        #         transforms.ToTensor(),
-        #         transforms.Normalize((0.1307,), (0.3081,))
-        #     ]),
-        # )
         dataset = PennFudanDataset('./data/data/PennFudanPed', get_transform(train=True))
-        return self._data_loader(dataset)
+        return self._data_loader(dataset, self.configs["batch_size"])
 
     @property
     def test_data_loader(self):
-        # dataset = MNIST(
-        #     root="./data",
-        #     train=False,
-        #     download=True,
-        #     transform=transforms.Compose([
-        #         transforms.ToTensor(),
-        #         transforms.Normalize((0.1307,), (0.3081,))
-        #     ]),
-        # )
-
         dataset = PennFudanDataset('./data/data/PennFudanPed', get_transform(train=False))
-        return self._data_loader(dataset)
+        return self._data_loader(dataset, self.configs["batch_size"])
 
     def single_run(self, datas: Tensor, targets: Tensor, lr_scheduler=None, scaler=None) -> dict:
         images = list(data.to(self.device) for data in datas)
@@ -112,39 +96,41 @@ class TrainerBase:
 
 class Trainer(TrainerBase):
 
-    def train(self, epoch: int = 10, print_freq: int = 10, scaler=None):
+    def train(self, epochs: int = 10, print_freq: int = 10, scaler=None):
         """start train"""
-        self.model.train()
-        metric_logger = utils.MetricLogger(delimiter="  ")
-        metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
-        header = f"Epoch: [{epoch}]"
+        for epoch in range(epochs):
+            self.model.train()
+            metric_logger = utils.MetricLogger(delimiter="  ")
+            metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
+            header = f"Epoch: [{epoch}]"
 
-        lr_scheduler = None
-        if epoch == 0:
-            warmup_factor = 1.0 / 1000
-            warmup_iters = min(1000, len(self.train_data_loader) - 1)
+            lr_scheduler = None
+            if epoch == 0:
+                warmup_factor = 1.0 / 1000
+                warmup_iters = min(1000, len(self.train_data_loader) - 1)
 
-            lr_scheduler = torch.optim.lr_scheduler.LinearLR(
-                self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
-            )
+                lr_scheduler = torch.optim.lr_scheduler.LinearLR(
+                    self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
+                )
 
-        self.model.to(self.device)
-        for datas, targets in metric_logger.log_every(self.train_data_loader, print_freq, header):
-            loss_dict = self.single_run(datas, targets, lr_scheduler=lr_scheduler, scaler=scaler)
+            self.model.to(self.device)
 
-            # reduce losses over all GPUs for logging purposes
-            loss_dict_reduced = utils.reduce_dict(loss_dict)
-            losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+            for datas, targets in metric_logger.log_every(self.train_data_loader, print_freq, header):
+                loss_dict = self.single_run(datas, targets, lr_scheduler=lr_scheduler, scaler=scaler)
 
-            loss_value = losses_reduced.item()
+                # reduce losses over all GPUs for logging purposes
+                loss_dict_reduced = utils.reduce_dict(loss_dict)
+                losses_reduced = sum(loss for loss in loss_dict_reduced.values())
 
-            if not math.isfinite(loss_value):
-                print(f"Loss is {loss_value}, stopping training")
-                print(loss_dict_reduced)
-                sys.exit(1)
+                loss_value = losses_reduced.item()
 
-            metric_logger.update(**loss_dict_reduced)
-            metric_logger.update(lr=self.optimizer.param_groups[0]["lr"])
+                if not math.isfinite(loss_value):
+                    print(f"Loss is {loss_value}, stopping training")
+                    print(loss_dict_reduced)
+                    sys.exit(1)
+
+                metric_logger.update(**loss_dict_reduced)
+                metric_logger.update(lr=self.optimizer.param_groups[0]["lr"])
 
         return metric_logger
 
