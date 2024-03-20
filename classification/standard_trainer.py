@@ -12,7 +12,7 @@ from data.penn_fundan import PennFudanDataset, get_transform, collate_fn
 
 
 class TrainerBase:
-    def __init__(self, model: Module, configs: dict = Optional[Dict], device=None):
+    def __init__(self, model: Module, configs: Optional[Dict] = None, device=None):
         self.device = device or torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         self.model = model
         self.configs = {
@@ -94,18 +94,29 @@ class TrainerBase:
 
         return loss_dict
 
+    def single_eval_run(self, datas: Tensor, targets: Tensor, lr_scheduler=None, scaler=None) -> dict:
+        images = list(data.to(self.device) for data in datas)
+        targets = [{k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k, v in t.items()} for t in
+                   targets]
+
+        # NOTE: make sure get loss.
+        self.model.train()
+        with torch.no_grad():
+            loss_dict = self.model(images, targets)
+        return loss_dict
+
 
 class Trainer(TrainerBase):
 
     def train(self, epochs: int = 10, print_freq: int = 10, scaler=None):
         """start train"""
         for epoch in range(epochs):
-            self.model.train()
 
             metric_logger = utils.MetricLogger(delimiter="  ")
             metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
             header = f"Train: Epoch: [{epoch}]"
 
+            # warmup lr
             lr_scheduler = None
             if epoch == 0:
                 warmup_factor = 1.0 / 1000
@@ -115,8 +126,9 @@ class Trainer(TrainerBase):
                     self.optimizer, start_factor=warmup_factor, total_iters=warmup_iters
                 )
 
+            # start train
+            self.model.train()
             self.model.to(self.device)
-
             for datas, targets in metric_logger.log_every(self.train_data_loader, print_freq, header):
                 loss_dict = self.single_run(datas, targets, lr_scheduler=lr_scheduler, scaler=scaler)
 
@@ -133,6 +145,17 @@ class Trainer(TrainerBase):
 
                 metric_logger.update(**loss_dict_reduced)
                 metric_logger.update(lr=self.optimizer.param_groups[0]["lr"])
+
+            # start eval
+            val_loss = 0
+            val_num_batch = len(self.test_data_loader)
+            self.model.eval()
+            for datas, targets in self.test_data_loader:
+                loss_dict = self.single_eval_run(datas, targets)
+                val_loss += sum(loss for loss in loss_dict.values())
+
+            val_loss /= val_num_batch
+            metric_logger.update(**{"test_loss": val_loss})
 
         return metric_logger
 
